@@ -9,17 +9,19 @@ import android.widget.ArrayAdapter
 import android.widget.SeekBar
 import androidx.fragment.app.FragmentActivity
 import com.fengyuhe.music.databinding.MainFragmentBinding
+import androidx.appcompat.widget.Toolbar
 import android.content.Context
-import android.widget.AdapterView
 import java.io.IOException
+import java.lang.IllegalStateException
 
 class MainActivity : FragmentActivity() {
 
-    private val mediaPlayer = MediaPlayer()
+    private var mediaPlayer = MediaPlayer()
     var mBinding: MainFragmentBinding? = null
     var isSeekBarChange = false
     var nowPlaying = ""
     private val data = ArrayList<String>()
+    private var isKeepingPlaying = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -28,12 +30,29 @@ class MainActivity : FragmentActivity() {
 
         initListView()
         initSeekBarView()
-
         getMusicsFromAssets(this, "")
+
+        mBinding!!.previous.setOnClickListener {
+            if (isKeepingPlaying) {
+                stopMediaPlayer()
+                println("Now Playing: $nowPlaying")
+                mBinding!!.play.setImageDrawable(resources.getDrawable(R.drawable.play))
+            }
+            var index = 0
+            if (data.indexOf(nowPlaying) - 1 < 0) {
+                index = 0
+            } else {
+                index = data.indexOf(nowPlaying) - 1
+            }
+            nowPlaying = data[index]
+            println("Now Playing: $nowPlaying")
+            initMediaPlayer()
+        }
 
         mBinding!!.play.setOnClickListener {
             if (!mediaPlayer.isPlaying) {
                 mediaPlayer.start()
+                isKeepingPlaying = true
                 updateSeekBar()
                 mBinding!!.play.setImageDrawable(resources.getDrawable(R.drawable.pause))
             } else if (mediaPlayer.isPlaying) {
@@ -42,10 +61,27 @@ class MainActivity : FragmentActivity() {
             }
         }
 
+        mBinding!!.next.setOnClickListener {
+            if (isKeepingPlaying) {
+                stopMediaPlayer()
+                println("Now Playing: $nowPlaying")
+                mBinding!!.play.setImageDrawable(resources.getDrawable(R.drawable.play))
+            }
+            var index = 0
+            if (data.indexOf(nowPlaying) + 1 >= data.size) {
+                index = data.lastIndex
+            } else {
+                index = data.indexOf(nowPlaying) + 1
+            }
+            nowPlaying = data[index]
+            println("Now Playing: $nowPlaying")
+            initMediaPlayer()
+        }
+
         mBinding!!.stop.setOnClickListener {
             if (mediaPlayer.isPlaying) {
-                mediaPlayer.reset()
-                initMediaPlayer()
+                isKeepingPlaying = false
+                stopMediaPlayer()
             }
         }
     }
@@ -54,7 +90,7 @@ class MainActivity : FragmentActivity() {
         override fun handleMessage(msg: Message) {
             super.handleMessage(msg)
             val data: Bundle = msg.data
-            var currentPosition = data.getInt("cur rentPosition")
+            val currentPosition = data.getInt("currentPosition")
 
             mBinding!!.tvStart.setText(calculateTime(currentPosition / 1000))
             mBinding!!.seekbar.progress = (currentPosition.toDouble() / mediaPlayer.duration.toDouble() * 100).toInt()
@@ -65,16 +101,30 @@ class MainActivity : FragmentActivity() {
         val adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, data)
         mBinding!!.musicList.adapter = adapter
         mBinding!!.musicList.setOnItemClickListener { _, _, position, _ ->
-            nowPlaying = data[position]
-            initMediaPlayer()
+            if (data[position] != nowPlaying) {
+                if (isKeepingPlaying) {
+                    stopMediaPlayer()
+                    println("Now Playing: $nowPlaying")
+                    mBinding!!.play.setImageDrawable(resources.getDrawable(R.drawable.play))
+                }
+                nowPlaying = data[position]
+                println("Now Playing: $nowPlaying")
+                initMediaPlayer()
+            }
         }
     }
 
     private fun initMediaPlayer() {
         var assetManager = assets
         val fd = assetManager.openFd(nowPlaying)
-        mediaPlayer.setDataSource(fd.fileDescriptor, fd.startOffset, fd.length)
+        try {
+            mediaPlayer.setDataSource(fd.fileDescriptor, fd.startOffset, fd.length)
+        } catch (e: IllegalStateException) {
+            mediaPlayer.reset()
+            mediaPlayer.setDataSource(fd.fileDescriptor, fd.startOffset, fd.length)
+        }
         mediaPlayer.prepare()
+        mBinding!!.musicName.text = nowPlaying
 
         var duration = mediaPlayer.duration
         var position = mediaPlayer.currentPosition
@@ -85,11 +135,12 @@ class MainActivity : FragmentActivity() {
     private fun initSeekBarView() {
         mBinding!!.seekbar.setOnSeekBarChangeListener(object: SeekBar.OnSeekBarChangeListener{
             override fun onProgressChanged(p0: SeekBar?, p1: Int, p2: Boolean) {
-                val duration = mediaPlayer.duration / 1000
-                val position = mediaPlayer.currentPosition
+                var duration = 0
+                var position = 0
+                duration = mediaPlayer.duration / 1000
+                position = mediaPlayer.currentPosition
                 mBinding!!.tvStart.setText(calculateTime(position / 1000))
                 mBinding!!.tvEnd.setText(calculateTime(duration))
-                mBinding!!.tvStart.setText(calculateTime(mediaPlayer.duration / 100 * p0!!.progress / 1000))
             }
 
             override fun onStartTrackingTouch(p0: SeekBar?) {
@@ -110,14 +161,15 @@ class MainActivity : FragmentActivity() {
         var musics: Array<String>? = null
         try {
             musics = assetManager.list(path)
-            println(musics)
         } catch (e: IOException) {
             e.printStackTrace()
         }
 
         if (musics != null) {
             for (indices: String in musics) {
-                data.add(indices)
+                if (indices.takeLast(3) == "mp3") {
+                    data.add(indices)
+                }
             }
             println(data)
         }
@@ -125,16 +177,23 @@ class MainActivity : FragmentActivity() {
 
     private fun updateSeekBar() {
         Thread {
-            while (true) {
+            while (isKeepingPlaying) {
                 try {
                     Thread.sleep(1000)
                 } catch (error: InterruptedException) {
                     error.printStackTrace()
                 }
-
-                var currentPosition = mediaPlayer.currentPosition
-                var message = Message.obtain()
-                var bundle = Bundle()
+                var currentPosition = 0
+                currentPosition = try {
+                    mediaPlayer.currentPosition
+                } catch (e: IllegalStateException) {
+                    println("Go next line")
+                    mediaPlayer.reset()
+                    mediaPlayer.currentPosition
+                }
+                println(currentPosition)
+                val message = Message.obtain()
+                val bundle = Bundle()
                 bundle.putInt("currentPosition", currentPosition)
                 message.data = bundle
                 this.handler.sendMessage(message)
@@ -175,5 +234,10 @@ class MainActivity : FragmentActivity() {
                 "00:$second"
             }
         }
+    }
+
+    private fun stopMediaPlayer() {
+        mediaPlayer.stop()
+        mediaPlayer.reset()
     }
 }
