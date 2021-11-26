@@ -1,5 +1,6 @@
 package com.fengyuhe.music
 
+import androidx.appcompat.app.AppCompatActivity
 import android.media.MediaPlayer
 import android.os.Bundle
 import android.os.Handler
@@ -11,17 +12,21 @@ import androidx.fragment.app.FragmentActivity
 import com.fengyuhe.music.databinding.MainFragmentBinding
 import androidx.appcompat.widget.Toolbar
 import android.content.Context
+import android.view.MenuItem
 import java.io.IOException
 import java.lang.IllegalStateException
 
-class MainActivity : FragmentActivity() {
+class MainActivity : AppCompatActivity() {
 
     private var mediaPlayer = MediaPlayer()
     var mBinding: MainFragmentBinding? = null
     var isSeekBarChange = false
     var nowPlaying = ""
     private val data = ArrayList<String>()
+    private val mode = arrayOf(R.drawable.line, R.drawable.loop, R.drawable.random)
+    private val modeName = arrayOf("line", "loop", "random")
     private var isKeepingPlaying = false
+    private var modeId = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -31,6 +36,7 @@ class MainActivity : FragmentActivity() {
         initListView()
         initSeekBarView()
         getMusicsFromAssets(this, "")
+        setSupportActionBar(findViewById(R.id.toolBar))
 
         mBinding!!.previous.setOnClickListener {
             if (isKeepingPlaying) {
@@ -50,22 +56,19 @@ class MainActivity : FragmentActivity() {
         }
 
         mBinding!!.play.setOnClickListener {
-            if (!mediaPlayer.isPlaying) {
-                mediaPlayer.start()
-                isKeepingPlaying = true
-                updateSeekBar()
-                mBinding!!.play.setImageDrawable(resources.getDrawable(R.drawable.pause))
-            } else if (mediaPlayer.isPlaying) {
-                mediaPlayer.pause()
-                mBinding!!.play.setImageDrawable(resources.getDrawable(R.drawable.play))
+            if (nowPlaying == "") {
+                nowPlaying = data.first()
+                initMediaPlayer()
             }
+
+            playMusic()
         }
 
         mBinding!!.next.setOnClickListener {
             if (isKeepingPlaying) {
                 stopMediaPlayer()
                 println("Now Playing: $nowPlaying")
-                mBinding!!.play.setImageDrawable(resources.getDrawable(R.drawable.play))
+               // mBinding!!.play.setImageDrawable(resources.getDrawable(R.drawable.play))
             }
             var index = 0
             if (data.indexOf(nowPlaying) + 1 >= data.size) {
@@ -76,13 +79,47 @@ class MainActivity : FragmentActivity() {
             nowPlaying = data[index]
             println("Now Playing: $nowPlaying")
             initMediaPlayer()
+            if (isKeepingPlaying) {
+                playMusic()
+            }
         }
 
-        mBinding!!.stop.setOnClickListener {
-            if (mediaPlayer.isPlaying) {
-                isKeepingPlaying = false
+        mBinding!!.mode.setImageDrawable(resources.getDrawable(mode.first()))
+        mBinding!!.mode.setOnClickListener {
+            modeId = (modeId + 1) % 3
+            mBinding!!.mode.setImageDrawable(resources.getDrawable(mode[modeId]))
+        }
+
+        mediaPlayer.setOnCompletionListener {
+            if (isKeepingPlaying) {
                 stopMediaPlayer()
+                println("Now Playing: $nowPlaying")
+                mBinding!!.play.setImageDrawable(resources.getDrawable(R.drawable.play))
             }
+            if (modeName[modeId] == "random") {
+                val num = (0 until data.size).random()
+                nowPlaying = data[num]
+                println("isRandom to $nowPlaying")
+            } else if (modeName[modeId] == "line") {
+                println(data.indexOf(nowPlaying))
+                val num = data.indexOf(nowPlaying) % (data.size - 1)
+                println(num)
+                nowPlaying = data[num]
+            }
+            initMediaPlayer()
+            playMusic()
+        }
+    }
+
+    private fun playMusic() {
+        if (!mediaPlayer.isPlaying) {
+            mediaPlayer.start()
+            isKeepingPlaying = true
+            updateSeekBar()
+            mBinding!!.play.setImageDrawable(resources.getDrawable(R.drawable.pause))
+        } else if (mediaPlayer.isPlaying) {
+            mediaPlayer.pause()
+            mBinding!!.play.setImageDrawable(resources.getDrawable(R.drawable.play))
         }
     }
 
@@ -239,5 +276,15 @@ class MainActivity : FragmentActivity() {
     private fun stopMediaPlayer() {
         mediaPlayer.stop()
         mediaPlayer.reset()
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem) = when (item.itemId) {
+        R.id.scan -> {
+
+            true
+        }
+        else -> {
+            super.onOptionsItemSelected(item)
+        }
     }
 }

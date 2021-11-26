@@ -4,21 +4,14 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <Toolbar
+    <androidx.appcompat.widget.Toolbar
         android:id="@+id/toolBar"
         android:layout_width="match_parent"
-        android:layout_height="60dp"
-        android:layout_gravity="center"
+        android:layout_height="?attr/actionBarSize"
         android:background="@color/green"
         android:elevation="4dp"
-        android:logo="@drawable/musicfill"
         android:popupTheme="@style/Theme.AppCompat.Light"
-        android:subtitle="贺峰煜 2019011127"
-        android:theme="@style/Widget.AppCompat.ActionBar"
-        android:title="Music"
-        android:titleMarginStart="20dp">
-
-    </Toolbar>
+        android:theme="@style/Widget.AppCompat.ActionBar" />
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -113,7 +106,7 @@
             />
 
         <ImageButton
-            android:id="@+id/stop"
+            android:id="@+id/mode"
             android:layout_width="50dp"
             android:layout_height="50dp"
             android:layout_weight="1"

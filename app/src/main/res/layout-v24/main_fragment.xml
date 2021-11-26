@@ -8,14 +8,10 @@
         android:id="@+id/toolBar"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
-        android:layout_gravity="center"
         android:background="@color/green"
         android:elevation="4dp"
         android:popupTheme="@style/Theme.AppCompat.Light"
-        android:subtitle="贺峰煜 2019011127"
-        android:theme="@style/Widget.AppCompat.ActionBar"
-        android:title="Music"
-        android:titleMarginStart="10dp"/>
+        android:theme="@style/Widget.AppCompat.ActionBar" />
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -110,13 +106,12 @@
             />
 
         <ImageButton
-            android:id="@+id/stop"
+            android:id="@+id/mode"
             android:layout_width="50dp"
             android:layout_height="50dp"
             android:layout_weight="1"
             android:background="#00000000"
-            android:scaleType="centerInside"
-            android:src="@drawable/stop" />
+            android:scaleType="centerInside" />
 
     </LinearLayout>
 
