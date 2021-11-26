@@ -55,6 +55,7 @@ class MainActivity : AppCompatActivity() {
         mBinding!!.previous.setOnClickListener {
             if (isKeepingPlaying) {
                 stopMediaPlayer()
+                isKeepingPlaying = false
                 println("Now Playing: $nowPlaying")
                 mBinding!!.play.setImageDrawable(resources.getDrawable(R.drawable.play))
             }
@@ -67,6 +68,26 @@ class MainActivity : AppCompatActivity() {
             nowPlaying = sumMusic[index]
             println("Now Playing: $nowPlaying")
             initMediaPlayer()
+
+            println(modeName[modeId])
+
+            if (modeName[modeId] == "random") {
+                val num = (0 until sumMusic.size).random()
+                nowPlaying = sumMusic[num]
+                println("isRandom to $nowPlaying")
+            } else if (modeName[modeId] == "line") {
+                println(sumMusic.indexOf(nowPlaying))
+                val num = if (sumMusic.indexOf(nowPlaying) - 1 < 0) 0 else (sumMusic.indexOf(nowPlaying) - 1) % (sumMusic.size - 1)
+                println(num)
+                nowPlaying = sumMusic[num]
+            }
+
+            println("Now Playing: $nowPlaying")
+            initMediaPlayer()
+            if (isKeepingPlaying) {
+                playMusic()
+            }
+
         }
 
         mBinding!!.play.setOnClickListener {
@@ -81,16 +102,24 @@ class MainActivity : AppCompatActivity() {
         mBinding!!.next.setOnClickListener {
             if (isKeepingPlaying) {
                 stopMediaPlayer()
+                isKeepingPlaying = false
                 println("Now Playing: $nowPlaying")
-               // mBinding!!.play.setImageDrawable(resources.getDrawable(R.drawable.play))
+                mBinding!!.play.setImageDrawable(resources.getDrawable(R.drawable.play))
             }
-            var index = 0
-            if (sumMusic.indexOf(nowPlaying) + 1 >= sumMusic.size) {
-                index = sumMusic.lastIndex
-            } else {
-                index = sumMusic.indexOf(nowPlaying) + 1
+
+            println(modeName[modeId])
+
+            if (modeName[modeId] == "random") {
+                val num = (0 until sumMusic.size).random()
+                nowPlaying = sumMusic[num]
+                println("isRandom to $nowPlaying")
+            } else if (modeName[modeId] == "line") {
+                println(sumMusic.indexOf(nowPlaying))
+                val num = (sumMusic.indexOf(nowPlaying) + 1) % (sumMusic.size - 1)
+                println(num)
+                nowPlaying = sumMusic[num]
             }
-            nowPlaying = sumMusic[index]
+
             println("Now Playing: $nowPlaying")
             initMediaPlayer()
             if (isKeepingPlaying) {
@@ -116,7 +145,7 @@ class MainActivity : AppCompatActivity() {
                 println("isRandom to $nowPlaying")
             } else if (modeName[modeId] == "line") {
                 println(sumMusic.indexOf(nowPlaying))
-                val num = sumMusic.indexOf(nowPlaying) % (sumMusic.size - 1)
+                val num = (sumMusic.indexOf(nowPlaying) + 1) % (sumMusic.size - 1)
                 println(num)
                 nowPlaying = sumMusic[num]
             }
@@ -176,7 +205,12 @@ class MainActivity : AppCompatActivity() {
                 mediaPlayer.setDataSource(fd.fileDescriptor, fd.startOffset, fd.length)
             }
         } else if (SDlist.contains(nowPlaying)) {
-            mediaPlayer.setDataSource("$musicName/$nowPlaying")
+            try {
+                mediaPlayer.setDataSource("$musicName/$nowPlaying")
+            } catch (e: IllegalStateException) {
+                mediaPlayer.reset()
+                mediaPlayer.setDataSource("$musicName/$nowPlaying")
+            }
         }
         mediaPlayer.prepare()
         mBinding!!.musicName.text = nowPlaying
@@ -272,7 +306,6 @@ class MainActivity : AppCompatActivity() {
                     mediaPlayer.reset()
                     mediaPlayer.currentPosition
                 }
-                println(currentPosition)
                 val message = Message.obtain()
                 val bundle = Bundle()
                 bundle.putInt("currentPosition", currentPosition)
