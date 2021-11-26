@@ -2,19 +2,27 @@ package com.fengyuhe.music
 
 import androidx.appcompat.app.AppCompatActivity
 import android.media.MediaPlayer
-import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
-import android.os.Message
 import android.widget.ArrayAdapter
 import android.widget.SeekBar
 import androidx.fragment.app.FragmentActivity
 import com.fengyuhe.music.databinding.MainFragmentBinding
 import androidx.appcompat.widget.Toolbar
 import android.content.Context
+import android.content.pm.PackageManager
+import android.content.res.AssetFileDescriptor
+import android.os.*
+import android.util.Log
+import android.view.Menu
 import android.view.MenuItem
+import androidx.core.app.ActivityCompat
+import java.io.File
+import java.io.FileFilter
+import java.io.FilenameFilter
 import java.io.IOException
+import java.lang.Exception
 import java.lang.IllegalStateException
+import java.util.jar.Manifest
+import kotlin.coroutines.CoroutineContext
 
 class MainActivity : AppCompatActivity() {
 
@@ -27,7 +35,12 @@ class MainActivity : AppCompatActivity() {
     private val modeName = arrayOf("line", "loop", "random")
     private var isKeepingPlaying = false
     private var modeId = 0
+    private var SDlist = ArrayList<String>()
+    private var sumMusic = ArrayList<String>()
+    private var musicName: File? = null
+    var adapter: ArrayAdapter<String>? = null
 
+    private val PERMISSION_STORAGE = arrayOf(android.Manifest.permission.READ_EXTERNAL_STORAGE, android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         mBinding = MainFragmentBinding.inflate(layoutInflater)
@@ -37,6 +50,7 @@ class MainActivity : AppCompatActivity() {
         initSeekBarView()
         getMusicsFromAssets(this, "")
         setSupportActionBar(findViewById(R.id.toolBar))
+        mBinding!!.toolBar.inflateMenu(R.menu.actionbar_menu)
 
         mBinding!!.previous.setOnClickListener {
             if (isKeepingPlaying) {
@@ -45,19 +59,19 @@ class MainActivity : AppCompatActivity() {
                 mBinding!!.play.setImageDrawable(resources.getDrawable(R.drawable.play))
             }
             var index = 0
-            if (data.indexOf(nowPlaying) - 1 < 0) {
+            if (sumMusic.indexOf(nowPlaying) - 1 < 0) {
                 index = 0
             } else {
-                index = data.indexOf(nowPlaying) - 1
+                index = sumMusic.indexOf(nowPlaying) - 1
             }
-            nowPlaying = data[index]
+            nowPlaying = sumMusic[index]
             println("Now Playing: $nowPlaying")
             initMediaPlayer()
         }
 
         mBinding!!.play.setOnClickListener {
             if (nowPlaying == "") {
-                nowPlaying = data.first()
+                nowPlaying = sumMusic.first()
                 initMediaPlayer()
             }
 
@@ -71,12 +85,12 @@ class MainActivity : AppCompatActivity() {
                // mBinding!!.play.setImageDrawable(resources.getDrawable(R.drawable.play))
             }
             var index = 0
-            if (data.indexOf(nowPlaying) + 1 >= data.size) {
-                index = data.lastIndex
+            if (sumMusic.indexOf(nowPlaying) + 1 >= sumMusic.size) {
+                index = sumMusic.lastIndex
             } else {
-                index = data.indexOf(nowPlaying) + 1
+                index = sumMusic.indexOf(nowPlaying) + 1
             }
-            nowPlaying = data[index]
+            nowPlaying = sumMusic[index]
             println("Now Playing: $nowPlaying")
             initMediaPlayer()
             if (isKeepingPlaying) {
@@ -97,14 +111,14 @@ class MainActivity : AppCompatActivity() {
                 mBinding!!.play.setImageDrawable(resources.getDrawable(R.drawable.play))
             }
             if (modeName[modeId] == "random") {
-                val num = (0 until data.size).random()
-                nowPlaying = data[num]
+                val num = (0 until sumMusic.size).random()
+                nowPlaying = sumMusic[num]
                 println("isRandom to $nowPlaying")
             } else if (modeName[modeId] == "line") {
-                println(data.indexOf(nowPlaying))
-                val num = data.indexOf(nowPlaying) % (data.size - 1)
+                println(sumMusic.indexOf(nowPlaying))
+                val num = sumMusic.indexOf(nowPlaying) % (sumMusic.size - 1)
                 println(num)
-                nowPlaying = data[num]
+                nowPlaying = sumMusic[num]
             }
             initMediaPlayer()
             playMusic()
@@ -135,16 +149,16 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun initListView() {
-        val adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, data)
+        adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, sumMusic)
         mBinding!!.musicList.adapter = adapter
         mBinding!!.musicList.setOnItemClickListener { _, _, position, _ ->
-            if (data[position] != nowPlaying) {
+            if (sumMusic[position] != nowPlaying) {
                 if (isKeepingPlaying) {
                     stopMediaPlayer()
                     println("Now Playing: $nowPlaying")
                     mBinding!!.play.setImageDrawable(resources.getDrawable(R.drawable.play))
                 }
-                nowPlaying = data[position]
+                nowPlaying = sumMusic[position]
                 println("Now Playing: $nowPlaying")
                 initMediaPlayer()
             }
@@ -153,12 +167,16 @@ class MainActivity : AppCompatActivity() {
 
     private fun initMediaPlayer() {
         var assetManager = assets
-        val fd = assetManager.openFd(nowPlaying)
-        try {
-            mediaPlayer.setDataSource(fd.fileDescriptor, fd.startOffset, fd.length)
-        } catch (e: IllegalStateException) {
-            mediaPlayer.reset()
-            mediaPlayer.setDataSource(fd.fileDescriptor, fd.startOffset, fd.length)
+        if (data.contains(nowPlaying)) {
+            var fd = assetManager.openFd(nowPlaying)
+            try {
+                mediaPlayer.setDataSource(fd.fileDescriptor, fd.startOffset, fd.length)
+            } catch (e: IllegalStateException) {
+                mediaPlayer.reset()
+                mediaPlayer.setDataSource(fd.fileDescriptor, fd.startOffset, fd.length)
+            }
+        } else if (SDlist.contains(nowPlaying)) {
+            mediaPlayer.setDataSource("$musicName/$nowPlaying")
         }
         mediaPlayer.prepare()
         mBinding!!.musicName.text = nowPlaying
@@ -206,10 +224,36 @@ class MainActivity : AppCompatActivity() {
             for (indices: String in musics) {
                 if (indices.takeLast(3) == "mp3") {
                     data.add(indices)
+                    sumMusic.add(indices)
                 }
             }
-            println(data)
+            println(sumMusic)
         }
+    }
+
+    private fun getMusicFromDisk() {
+        var permission = ActivityCompat.checkSelfPermission(this, PERMISSION_STORAGE[0])
+        if (permission != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, PERMISSION_STORAGE, 0)
+        }
+        musicName = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC)
+        println(musicName)
+        try {
+            for (music in musicName!!.list()) {
+                if (music.takeLast(3) == "mp3") {
+                    SDlist.add(music)
+                    sumMusic.add(music)
+                }
+            }
+            println(sumMusic)
+            adapter!!.notifyDataSetChanged()
+        } catch (e: Exception) {
+            Log.i("TAG", "读取文件异常 $e")
+        }
+    }
+
+    private fun updateListView() {
+
     }
 
     private fun updateSeekBar() {
@@ -278,9 +322,15 @@ class MainActivity : AppCompatActivity() {
         mediaPlayer.reset()
     }
 
+    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
+        val inflater = menuInflater
+        inflater.inflate(R.menu.actionbar_menu, menu)
+        return true
+    }
+
     override fun onOptionsItemSelected(item: MenuItem) = when (item.itemId) {
         R.id.scan -> {
-
+            getMusicFromDisk()
             true
         }
         else -> {
